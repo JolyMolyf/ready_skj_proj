@@ -8,7 +8,7 @@ import java.net.*;
 public class ClientSend {
 
     private FileEvent fileEvent = null;
-
+    public boolean readyTorestart = false;
     public static void main(String[] args) {
         ClientSend cs = new ClientSend(1);
         cs.sendReq();
@@ -16,10 +16,10 @@ public class ClientSend {
 
     int id;
     DatagramSocket datagramSocket;
-    private String destPath = "/Users/vsevoloddoroshenko/Documents/test" + id + "/";
     private InetAddress address;
     private String hostIp = "localHost";
     int comPort = 9876;
+    int timeOut = 5000;
     private byte buf[];
 
     public ClientSend(int id) {
@@ -43,18 +43,20 @@ public class ClientSend {
             buf = msg.getBytes();
             packet = new DatagramPacket(buf, buf.length, address, comPort);
             datagramSocket.send(packet);
+            datagramSocket.setSoTimeout(timeOut);
             System.out.println(packet.toString() + " sended");
             datagramSocket.close();
             DatagramSocket receiveConfigSock = new DatagramSocket();
             byte[] recieveFileBuf = new byte[4096];
             packet = new DatagramPacket(recieveFileBuf, recieveFileBuf.length);
             receiveConfigSock.receive(packet);
+            receiveConfigSock.setSoTimeout(timeOut);
             System.out.println(new String(packet.getData(), 0, packet.getLength()));
             String[] dtParse = new String(packet.getData(), 0, packet.getLength()).split(":");
             int dtLength = Integer.parseInt(dtParse[0]);
             byte[] incomingData = new byte[dtLength * 1000];
             DatagramSocket recieveFileSock = new DatagramSocket(9878);
-            while (true) {
+            while (!readyTorestart) {
                 DatagramPacket incomingPacket = new DatagramPacket(incomingData, incomingData.length);
                 recieveFileSock.receive(incomingPacket);
                 System.out.println(incomingPacket.getData().length + " here length");
@@ -67,6 +69,8 @@ public class ClientSend {
                     System.exit(0);
                 }
                 createAndWriteFile(); // writing the file to hard disk
+                receiveConfigSock.close();
+                recieveFileSock.close();
             }
 
         } catch (IOException e) {
@@ -92,7 +96,7 @@ public class ClientSend {
             fileOutputStream.flush();
             fileOutputStream.close();
             System.out.println("Output file : " + outputFile + " is successfully saved ");
-
+            readyTorestart = true;
 
         } catch (FileNotFoundException e) {
             e.printStackTrace();
